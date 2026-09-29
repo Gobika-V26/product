@@ -1,15 +1,17 @@
+require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
 const path = require("path");
 
 const app = express();
 
-
+// To read data submitted from HTML form
 app.use(express.urlencoded({ extended: true }));
 
 
+// Connect to MongoDB
 mongoose.connect(
-    "mongodb://user_453w55cx8:p453w55cx8@db01.dbhost.dev:5050/db_453w55cx8"
+    process.env.MONGO_URI
 )
 .then(() => {
     console.log("MongoDB connected");
@@ -19,41 +21,258 @@ mongoose.connect(
 });
 
 
+// Mongoose Schema
 const memberSchema = new mongoose.Schema({
+
     memberId: String,
+
     name: String,
-    department: String,
-    year: Number,
-    club: String
+
+    club: String,
+
+    yearOfStudy: Number,
+
+    role: String,
+
+    points: Number,
+
+    interests: String,
+
+    status: String
+
 });
 
 
+// Mongoose Model
 const Member = mongoose.model("Member", memberSchema);
 
 
+// Display HTML page
 app.get("/", (req, res) => {
+
     res.sendFile(path.join(__dirname, "index.html"));
+
 });
 
+
+// ======================================
+// 1. Add Club Member
+// ======================================
 
 app.post("/members", async (req, res) => {
 
     console.log(req.body);
 
     const member = new Member({
+
         memberId: req.body.memberId,
+
         name: req.body.name,
-        department: req.body.department,
-        year: req.body.year,
-        club: req.body.club
+
+        club: req.body.club,
+
+        yearOfStudy: req.body.yearOfStudy,
+
+        role: req.body.role,
+
+        points: req.body.points,
+
+        interests: req.body.interests,
+
+        status: req.body.status
+
     });
 
     await member.save();
 
     res.send("Club member added successfully");
+
 });
 
 
+// ======================================
+// 2. Display members of a club
+// having points greater than given value
+// ======================================
+
+app.get("/members/search", async (req, res) => {
+
+    const members = await Member.find({
+
+        club: req.query.club,
+
+        points: {
+            $gt: Number(req.query.points)
+        }
+
+    });
+
+    res.json(members);
+
+});
+
+
+// ======================================
+// 3. Search member using Member ID
+// ======================================
+
+app.get("/members/searchById", async (req, res) => {
+
+    const member = await Member.findOne({
+
+        memberId: req.query.memberId
+
+    });
+
+    res.json(member);
+
+});
+
+
+// ======================================
+// 4. Display only selected details
+// ======================================
+
+app.get("/members/details", async (req, res) => {
+
+    const member = await Member.findOne(
+
+        {
+            memberId: req.query.memberId
+        },
+
+        {
+            _id: 0,
+            name: 1,
+            club: 1,
+            role: 1,
+            points: 1
+        }
+
+    );
+
+    res.json(member);
+
+});
+
+
+// ======================================
+// 5. Update role and points
+// ======================================
+
+app.post("/members/update", async (req, res) => {
+
+    const member = await Member.findOneAndUpdate(
+
+        {
+            memberId: req.body.memberId
+        },
+
+        {
+            role: req.body.role,
+            points: Number(req.body.points)
+        },
+
+        {
+        returnDocument: "after"
+        }
+
+    );
+
+    res.json(member);
+
+});
+
+
+// ======================================
+// 6. Increase points of all members
+// belonging to a particular club
+// ======================================
+
+app.post("/members/increasePoints", async (req, res) => {
+
+    const result = await Member.updateMany(
+
+        {
+            club: req.body.club
+        },
+
+        {
+            $inc: {
+                points: Number(req.body.amount)
+            }
+        }
+
+    );
+
+    res.send(
+        result.modifiedCount +
+        " members updated successfully"
+    );
+
+});
+
+
+// ======================================
+// 7. Search members within points range
+// ======================================
+
+app.get("/members/range", async (req, res) => {
+
+    const members = await Member.find({
+
+        points: {
+
+            $gte: Number(req.query.min),
+
+            $lte: Number(req.query.max)
+
+        }
+
+    });
+
+    res.json(members);
+
+});
+
+
+// ======================================
+// 8. Delete member using Member ID
+// ======================================
+
+app.post("/members/delete", async (req, res) => {
+
+    const member = await Member.findOneAndDelete({
+
+        memberId: req.body.memberId
+
+    });
+
+    res.send("Member deleted successfully");
+
+});
+
+
+// ======================================
+// 9. Final display
+// Descending order of points
+// ======================================
+
+app.get("/members/final", async (req, res) => {
+
+    const members = await Member.find()
+        .sort({
+            points: -1
+        });
+
+    res.json(members);
+
+});
+
+
+// Start server
 app.listen(3000, () => {
+
     console.log("Server running on port 3000");
+
 });
